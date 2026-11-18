@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>فكّر معي</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f4ee;--card:#fff;--ink:#1f2430;--mut:#6b7080;--pri:#4b3fd1;--pri-t:#fff;--acc:#f5b83d;--bd:#e4e0d4;--ai:#ece9ff;--me:#fff3d6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14151c;--card:#1d1f2a;--ink:#eceef6;--mut:#9aa0b4;--pri:#8f86ff;--pri-t:#12121a;--bd:#2d3042;--ai:#262452;--me:#3a3016}}
+:root[data-theme="dark"]{--bg:#14151c;--card:#1d1f2a;--ink:#eceef6;--mut:#9aa0b4;--pri:#8f86ff;--pri-t:#12121a;--bd:#2d3042;--ai:#262452;--me:#3a3016}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Tajawal',system-ui,sans-serif;line-height:1.7}
+.wrap{max-width:720px;margin:0 auto;padding:16px}
+header{text-align:center;padding:12px 0 4px}
+h1{margin:0;font-size:30px}.sub{color:var(--mut);font-size:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:16px;margin-top:14px}
+.bar{display:flex;gap:6px;margin:10px 0}
+.bar i{flex:1;height:7px;border-radius:5px;background:var(--bd)}.bar i.on{background:var(--pri)}
+.stage{font-weight:700;font-size:14px;color:var(--pri)}
+#chat{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.m{padding:10px 14px;border-radius:14px;max-width:92%;white-space:pre-wrap;overflow-wrap:anywhere}
+.m.ai{background:var(--ai);align-self:flex-start;border-top-right-radius:4px}
+.m.me{background:var(--me);align-self:flex-end;border-top-left-radius:4px}
+textarea{width:100%;min-height:90px;border:1px solid var(--bd);border-radius:12px;padding:10px;font:inherit;background:var(--bg);color:var(--ink);resize:vertical}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+button{font:inherit;border:0;border-radius:12px;padding:10px 16px;cursor:pointer;background:var(--pri);color:var(--pri-t);font-weight:700}
+button.alt{background:transparent;color:var(--pri);border:1px solid var(--pri)}
+button:disabled{opacity:.5;cursor:default}
+.pill{display:inline-block;background:var(--ai);border-radius:20px;padding:2px 12px;font-size:13px;margin-left:6px}
+.rep table{width:100%;border-collapse:collapse;font-size:14px}.rep td,.rep th{border-bottom:1px solid var(--bd);padding:6px;text-align:right;vertical-align:top}
+.scroll{overflow-x:auto}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>فكّر معي 💡</h1><div class="sub">تجربة تعليمية</div></header>
+
+<div class="card" id="welcome">
+<h2 style="margin:0 0 6px">مرحباً بك! 👋</h2>
+<p style="margin:0 0 10px">اكتب السؤال الذي تريد فهمه، وسنساعدك على الوصول للإجابة بنفسك.</p>
+<textarea id="q" placeholder="مثال: لماذا يطفو الخشب على الماء؟"></textarea>
+<div class="row"><button id="start">ابدأ التفكير</button></div>
+<p id="warn" class="sub hide">⚠️ ميزة الذكاء الاصطناعي غير متاحة الآن. افتح الصفحة من حساب Claude.</p>
+</div>
+
+<div class="card hide" id="session">
+<div class="stage" id="stage"></div>
+<div class="bar" id="bar"></div>
+<div id="chat"></div>
+<div id="input" style="margin-top:12px">
+<textarea id="ans" placeholder="اكتب أفكارك هنا..."></textarea>
+<div class="row"><button id="send">إرسال</button><button class="alt" id="hint">💡 أحتاج تلميحاً أوضح</button></div>
+</div>
+</div>
+
+<div class="card rep hide" id="report">
+<h2 style="margin:0 0 8px">📋 تقرير المعلم</h2>
+<div id="sum"></div>
+<div class="scroll"><table id="tbl"></table></div>
+<div class="row"><button id="dl" class="alt">تنزيل التقرير</button><button id="again">سؤال جديد</button></div>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const STAGES=['فهم السؤال','ما تعرفه','تلميح','التفسير','إجابتك النهائية'];
+const GUIDE=[
+'اطلب من الطالب أن يعيد صياغة السؤال بكلماته ويحدد المطلوب منه تحديداً.',
+'قيّم فهمه بجملة، ثم اسأله: ماذا تعرف عن الموضوع؟ وما محاولتك الأولى؟',
+'أعطِ تلميحاً بمستوى {H} من 3: (1 توجيه عام جداً بسؤال، 2 أوضح مع فكرة الخطوة الأولى، 3 شبه كامل دون ذكر الجواب النهائي). ثم اطلب منه التجربة.',
+'اطلب منه أن يفسّر لماذا اختار طريقته أو استنتاجه، وصحّح أي مغالطة بسؤال.',
+'اطلب منه كتابة إجابته النهائية بصياغته الخاصة.'
+];
+let S,sample=null;
+const SYS=`أنت معلّم صبور في تطبيق «فكّر معي». هدفك أن ينتقل الطالب من الإجابات الجاهزة إلى التفكير المستقل.
+قواعد صارمة: لا تكشف الإجابة النهائية قبل مرحلة الختام. اطرح سؤالاً واحداً فقط في كل رد. اجعل الرد قصيراً (٣ جمل كحد أقصى) وبالعربية البسيطة. شجّع المحاولة حتى لو كانت خاطئة. إن طلب الطالب الحل مباشرة فأعده بلطف إلى التفكير.
+أجب بصيغة JSON فقط: {"reply":"ردك للطالب","score":رقم من 0 إلى 10 يقيس جهد الطالب في رسالته الأخيرة ووضوح تفسيره (وليس صحة الإجابة فقط),"note":"ملاحظة قصيرة للمعلم عن رسالته الأخيرة"}. في أول رسالة اجعل score=0.`;
+
+function add(cls,t){const d=document.createElement('div');d.className='m '+cls;d.textContent=t;$('chat').appendChild(d);d.scrollIntoView({block:'nearest'})}
+function draw(){
+ $('stage').textContent='المرحلة '+S.stage+' من 5 — '+STAGES[S.stage-1];
+ $('bar').innerHTML=[1,2,3,4,5].map(n=>'<i class="'+(n<=S.stage?'on':'')+'"></i>').join('');
+ $('hint').classList.toggle('hide',!(S.stage===3||S.stage===4)||S.hint>=3);
+}
+function history(){return S.log.map(x=>(x.r==='me'?'الطالب: ':'المعلم: ')+x.t).join('\n')}
+async function ask(mode,studentMsg){
+ const task=mode==='final'
+  ?'الطالب أرسل إجابته النهائية. قيّمها بلطف، ثم قدّم الآن الشرح الكامل والإجابة الصحيحة في أقصى 6 جمل، وأشِد بما أحسن فيه.'
+  :'المرحلة الحالية: '+STAGES[S.stage-1]+'. '+GUIDE[S.stage-1].replace('{H}',S.hint);
+ const p=SYS+'\n\nسؤال الطالب: '+S.q+'\n\nالمحادثة حتى الآن:\n'+history()+'\n\nالمهمة الآن: '+task;
+ const res=await fetch('/.netlify/functions/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p})});
+ if(!res.ok)throw new Error('api');
+ return await res.json();
+}
+function busy(b){['send','hint','start'].forEach(i=>$(i).disabled=b)}
+async function turn(mode,msg){
+ busy(true);
+ const th=document.createElement('div');th.className='m ai';th.textContent='يفكّر...';$('chat').appendChild(th);
+ try{
+  const r=await ask(mode,msg);
+  th.remove();
+  const reply=String(r.reply||'');
+  add('ai',reply);S.log.push({r:'ai',t:reply});
+  if(msg){S.turns.push({stage:S.stage,msg,score:Number(r.score)||0,note:String(r.note||''),hint:mode==='hint'})}
+  draw();
+ }catch(e){th.remove();add('ai','تعذّر الاتصال، حاول مرة أخرى.');S.err=true}
+ busy(false);
+}
+$('start').onclick=async()=>{
+ const q=$('q').value.trim();if(!q||!sample)return;
+ S={q,stage:1,hint:1,log:[],turns:[]};
+ $('welcome').classList.add('hide');$('session').classList.remove('hide');$('report').classList.add('hide');
+ $('chat').innerHTML='';add('me',q);S.log.push({r:'me',t:q});draw();
+ await turn('stage',null);
+};
+$('send').onclick=async()=>{
+ const t=$('ans').value.trim();if(!t)return;
+ $('ans').value='';add('me',t);S.log.push({r:'me',t});
+ if(S.stage===5){
+  S.final=true;busy(true);
+  await turn('final',t);
+  $('input').classList.add('hide');showReport();return;
+ }
+ S.stage++;
+ // scores belong to the message just sent; stage in turns is the one answered
+ const prev=S.stage-1;draw();
+ const before=S.turns.length;
+ await turn('stage',t);
+ if(S.turns[before])S.turns[before].stage=prev;
+};
+$('hint').onclick=async()=>{
+ if(S.hint>=3)return;S.hint++;
+ const t='أحتاج تلميحاً أوضح';add('me',t);S.log.push({r:'me',t});
+ await turn('hint',t);
+};
+function stats(){
+ const T=S.turns.filter(x=>!x.hint),n=T.length;
+ const avg=n?T.reduce((a,x)=>a+x.score,0)/n:0;
+ const h=Math.floor(T.length?0:0)+(S.hint-1);
+ const half=Math.floor(n/2)||1;
+ const a1=T.slice(0,half).reduce((a,x)=>a+x.score,0)/half;
+ const a2=n>half?T.slice(half).reduce((a,x)=>a+x.score,0)/(n-half):a1;
+ const trend=a2-a1>0.5?'تطوّر ملحوظ 📈':a1-a2>0.5?'تراجع، يحتاج دعماً':'مستقر';
+ return{n,avg:avg.toFixed(1),h,trend};
+}
+function showReport(){
+ const s=stats();
+ $('sum').innerHTML='<p><span class="pill">المحاولات: '+s.n+'</span><span class="pill">التلميحات المستخدمة: '+s.h+'</span><span class="pill">قياس التفكير: '+s.avg+' / 10</span></p><p>مدى تطوّر الفهم: <b>'+s.trend+'</b></p><p>السؤال: '+esc(S.q)+'</p>';
+ $('tbl').innerHTML='<tr><th>المرحلة</th><th>ما كتبه الطالب</th><th>الدرجة</th><th>ملاحظة</th></tr>'+S.turns.map(x=>'<tr><td>'+STAGES[x.stage-1]+'</td><td>'+esc(x.msg)+'</td><td>'+x.score+'</td><td>'+esc(x.note)+'</td></tr>').join('');
+ $('report').classList.remove('hide');$('report').scrollIntoView({behavior:'smooth'});
+}
+function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+$('dl').onclick=()=>{
+ try{const s=stats();
+ const txt='تقرير «فكّر معي»\nالسؤال: '+S.q+'\nالمحاولات: '+s.n+' | التلميحات: '+s.h+' | قياس التفكير: '+s.avg+'/10 | التطور: '+s.trend+'\n\n'+S.turns.map(x=>'['+STAGES[x.stage-1]+'] '+x.msg+' ('+x.score+'/10) - '+x.note).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));a.download='taqrir-fakker-maai.txt';a.click()}catch(e){}
+};
+$('again').onclick=()=>{$('report').classList.add('hide');$('session').classList.add('hide');$('input').classList.remove('hide');$('q').value='';$('welcome').classList.remove('hide')};
+sample=true;
+</script>
+</body>
+</html>
